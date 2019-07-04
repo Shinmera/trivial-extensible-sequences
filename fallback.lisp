@@ -202,10 +202,81 @@
          ,@body))))
 
 ;;; Simple Iterator Protocol
-(defgeneric iterator-step (sequence iterator from-end))
-(defgeneric iterator-endp (sequence iterator limit from-end))
-(defgeneric iterator-element (sequence iterator))
-(defgeneric (setf iterator-element) (sequence iterator))
-(defgeneric iterator-index (sequence iterator))
-(defgeneric iterator-copy (sequence iterator))
-(defgeneric make-simple-sequence-iterator (sequence &key start end from-end))
+;; Taken from SBCL's extensible sequences implementation
+(defgeneric make-simple-sequence-iterator
+    (sequence &key from-end start end)
+  (:method ((s list) &key from-end (start 0) end)
+    (if from-end
+        (let* ((termination (if (= start 0) *exhausted* (nthcdr (1- start) s)))
+               (init (if (<= (or end (length s)) start)
+                         termination
+                         (if end (last s (- (length s) (1- end))) (last s)))))
+          (values init termination t))
+        (cond
+          ((not end) (values (nthcdr start s) nil nil))
+          (t (let ((st (nthcdr start s)))
+               (values st (nthcdr (- end start) st) nil))))))
+  (:method ((s vector) &key from-end (start 0) end)
+    (let ((end (or end (length s))))
+      (if from-end
+          (values (1- end) (1- start) t)
+          (values start end nil))))
+  (:method ((s sequence) &key from-end (start 0) end)
+    (let ((end (or end (length s))))
+      (if from-end
+          (values (1- end) (1- start) from-end)
+          (values start end nil)))))
+
+(defgeneric iterator-step (sequence iterator from-end)
+  (:method ((s list) iterator from-end)
+    (if from-end
+        (if (eq iterator s)
+            *exhausted*
+            (do* ((xs s (cdr xs)))
+                 ((eq (cdr xs) iterator) xs)))
+        (cdr iterator)))
+  (:method ((s vector) iterator from-end)
+    (if from-end
+        (1- iterator)
+        (1+ iterator)))
+  (:method ((s sequence) iterator from-end)
+    (if from-end
+        (1- iterator)
+        (1+ iterator))))
+
+(defgeneric iterator-endp (sequence iterator limit from-end)
+  (:method ((s list) iterator limit from-end)
+    (eq iterator limit))
+  (:method ((s vector) iterator limit from-end)
+    (= iterator limit))
+  (:method ((s sequence) iterator limit from-end)
+    (= iterator limit)))
+
+(defgeneric iterator-element (sequence iterator)
+  (:method ((s list) iterator)
+    (car iterator))
+  (:method ((s vector) iterator)
+    (aref s iterator))
+  (:method ((s sequence) iterator)
+    (sequence:elt s iterator)))
+
+(defgeneric (setf iterator-element) (new-value sequence iterator)
+  (:method (o (s list) iterator)
+    (setf (car iterator) o))
+  (:method (o (s vector) iterator)
+    (setf (aref s iterator) o))
+  (:method (o (s sequence) iterator)
+    (setf (sequence:elt s iterator) o)))
+
+(defgeneric iterator-index (sequence iterator)
+  (:method ((s list) iterator)
+    ;; FIXME: this sucks.  (In my defence, it is the equivalent of the
+    ;; Apple implementation in Dylan...)
+    (loop for l on s for i from 0 when (eq l iterator) return i))
+  (:method ((s vector) iterator) iterator)
+  (:method ((s sequence) iterator) iterator))
+
+(defgeneric iterator-copy (sequence iterator)
+  (:method ((s list) iterator) iterator)
+  (:method ((s vector) iterator) iterator)
+  (:method ((s sequence) iterator) iterator))
