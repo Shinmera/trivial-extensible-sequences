@@ -1,0 +1,64 @@
+#|
+ This file is a part of trivial-extensible-sequences
+ (c) 2019 Shirakumo http://tymoon.eu (shinmera@tymoon.eu)
+ Author: Nicolas Hafner <shinmera@tymoon.eu>
+|#
+
+(defpackage #:org.shirakumo.trivial-extensible-sequences
+  (:use #+sbcl #:sb-sequence
+        #+abcl #:sequence)
+  (:export
+   #:sequence
+   #:length
+   #:elt
+   #:adjust-sequence
+   #:make-sequence-like
+   #:protocol-unimplemented
+   #:emptyp
+   #:count
+   #:count-if
+   #:count-if-not
+   #:find
+   #:find-if
+   #:find-if-not
+   #:position
+   #:position-if
+   #:position-if-not
+   #:subseq
+   #:copy-seq
+   #:fill
+   #:map
+   #:nsubstitute
+   #:nsubstitute-if
+   #:nsubstitute-if-not
+   #:substitute
+   #:substitute-if
+   #:substitute-if-not
+   #:replace
+   #:nreverse
+   #:reverse
+   #:concatenate
+   #:reduce
+   #:mismatch
+   #:search
+   #:delete
+   #:delete-if
+   #:delete-if-not
+   #:remove
+   #:remove-if
+   #:remove-if-not
+   #:delete-duplicates
+   #:remove-duplicates
+   #:sort
+   #:stable-sort
+   #:merge
+   #:dosequence
+   #:make-sequence-iterator
+   #:with-sequence-iterator
+   #:with-sequence-iterator-functions
+   #:iterator-step
+   #:iterator-endp
+   #:iterator-element
+   #:iterator-index
+   #:iterator-copy
+   #:make-simple-sequence-iterator))
