@@ -35,14 +35,74 @@
 (defclass sequence ()
   ())
 
-(defgeneric length (sequence))
-(defgeneric elt (sequence index))
-(defgeneric (setf elt) (new-value sequence index))
-(defgeneric adjust-sequence (sequence length &key initial-element initial-contents))
-(defgeneric make-sequence-like (sequence length &key initial-element initial-contents))
+(defgeneric length (sequence)
+  (:method (thing)
+    (protocol-unimplemented 'length thing))
+  (:method ((sequence list))
+    (length sequence))
+  (:method ((sequence vector))
+    (length sequence)))
+
+(defgeneric elt (sequence index)
+  (:method (thing index)
+    (protocol-unimplemented 'elt thing))
+  (:method ((sequence list) index)
+    (elt sequence index))
+  (:method ((sequence vector) index)
+    (elt sequence index)))
+
+(defgeneric (setf elt) (new-value sequence index)
+  (:method (new-value thing index)
+    (protocol-unimplemented '(setf elt) thing))
+  (:method (new-value (sequence list) index)
+    (setf (elt sequence index) new-value))
+  (:method (new-value (sequence vector) index)
+    (setf (elt sequence index) new-value)))
+
+(defgeneric adjust-sequence (sequence length &key initial-element initial-contents)
+  (:method (thing length &key initial-element initial-contents)
+    (protocol-unimplemented 'adjust-sequence thing))
+  (:method ((sequence vector) length &rest args)
+    (apply #'adjust-array sequence length args))
+  (:method ((sequence list) length &key initial-element (initial-contents NIL contents-p))
+    (when (< 0 length)
+      (loop for cons = sequence then (cdr cons)
+            for i from 1 below length
+            while (cdr cons)
+            finally (cond ((< i length)
+                           (setf (cdr cons) (make-list (- length i) :initial-element initial-element)))
+                          ((= i length)
+                           (setf (cdr cons) NIL))))
+      (when contents-p
+        (replace sequence initial-contents))
+      sequence)))
+
+(defgeneric make-sequence-like (sequence length &key initial-element initial-contents)
+  (:method (thing length &key initial-element initial-contents)
+    (protocol-unimplemented 'make-sequence-like thing))
+  (:method ((sequence vector) length &rest args)
+    (if (loop for cons on args by #'cddr
+              thereis (or (eql :initial-element (car cons))
+                          (eql :initial-contents (car cons))))
+        (apply #'make-array length args)
+        (replace (make-array length) sequence)))
+  (:method ((sequence list) length &key initial-element (initial-contents NIL contents-p))
+    (if contents-p
+        (replace (make-list length) initial-contents)
+        (make-list length :initial-element initial-element))))
 
 (define-condition protocol-unimplemented (type-error)
-  ())
+  ((protocol :initarg :protocol :reader protocol))
+  (:report (lambda (c s) (format s "The sequence protocol function ~s is not implemented for~%  ~a"
+                                 (protocol c) (type-error-datum c)))))
+
+(defun protocol-unimplemented (protocol datum)
+  (error (sequence-symbol 'protocol-unimplemented)
+         :protocol (if (listp protocol)
+                       `(setf ,(sequence-symbol (second protocol)))
+                       (sequence-symbol protocol))
+         :datum datum
+         :epected-type '(or sequence #.(sequence-symbol 'sequence))))
 
 ;;;; Default Functions
 (defgeneric emptyp ())
