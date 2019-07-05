@@ -1,1 +1,56 @@
-## DON'T LOOK, AAAAAAAAa
+## About
+This package provides a portability layer for the extensible sequences standard extension to Common Lisp. Extensible sequences allow you to create your own sequence types that integrate with the rest of the functions and operations that interact with sequences.
+
+The extensible sequences protocol is defined in 'User-extensible sequences in Common Lisp' by Christophe Rhodes"[1]"(link http://www.doc.gold.ac.uk/~mas01cr/papers/ilc2007/sequences-20070301.pdf, supertext). Also see the "SBCL manual"(http://www.sbcl.org/manual/#Extensible-Sequences).
+
+## How To
+The basic operation is rather simple. All the functionality is defined in the ``org.shirakumo.trivial-extensible-sequences`` package -- you may want to use a package-local-nickname to alias it to ``sequences``.
+
+First, create a subclass of ``sequence``. This will be your new sequence type. For this how-to, we'll define a sequence type that can represent any value as a sequence of length 1.
+
+::: lisp
+(defclass value-as-sequence (sequences:sequence)
+  ((value :initarg :value :initform (error "VALUE required.") :accessor value)))
+:::
+
+Then you should add methods on ``length``, ``elt``, ``(setf elt)``, ``adjust-sequence`` and ``make-sequence-like``.
+
+::: lisp
+(defmethod sequences:length ((sequence value-as-sequence))
+  1)
+
+(defmethod sequences:elt ((sequence value-as-sequence) index)
+  (check-type index (integer 0 0))
+  (value sequence))
+
+(defmethod (setf sequences:elt) (value (sequence value-as-sequence) index)
+  (check-type index (integer 0 0))
+  (setf (value sequence) value))
+
+(defmethod sequences:adjust-sequence ((sequence value-as-sequence) length &key initial-contents initial-element)
+  (check-type length (integer 1 1))
+  (when initial-contents
+    (setf (value sequence) (elt initial-contents 0)))
+  sequence)
+
+(defmethod sequences:make-sequence-like ((sequence value-as-sequence) length &key initial-contents initial-element)
+  (check-type length (integer 1 1))
+  (make-instance 'value-as-sequence
+                 :value (or (elt initial-contents 0) initial-element (value sequence))))
+:::
+
+If you leave out any of these functions, some of the sequence operators will not work and will instead signal a ``protocol-unimplemented`` error on use. If you do provide a method on each, then all the sequence operators should work out of the box using generic implementations. If you would like to speed up a particular operation for your sequence type, you can also define a specific implementation by adding a method to that function.
+
+## Implementation Support
+The following implementations have native support for extensible sequences. On those implementations, this package will merely be an alias for the implementation's sequences package.
+
+- ABCL
+- SBCL
+
+On any other implementation, this package provides a //fallback// implementation of the protocol. The protocol should work completely with the following caveats:
+
+- You must use the functions provided by this package to handle your sequences, rather than the ones from the ``cl`` package.
+- Custom sequences defined with a subclass will not actually be a subtype of ``cl:sequence``.
+- The fallback protocol will be slower than what the implementation could provide.
+
+Meaning you can still make things work most of the time, but with some heavy caveats. For this reason, **please contact your implementation maintainers and request for the protocol to be implemented natively**. The source code of the fallback implementation, as well as "SBCL's own implementation"(https://github.com/sbcl/sbcl/blob/master/src/pcl/sequence.lisp) are licensed liberally and should serve as a good basis.
