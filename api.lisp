@@ -5,6 +5,8 @@
 |#
 
 (defpackage #:org.shirakumo.trivial-extensible-sequences
+  #-(or abcl ccl clasp ecl sbcl)
+  (:nicknames #:sequence)
   (:use #+sbcl #:sb-sequence
         #+abcl #:sequence)
   (:export
