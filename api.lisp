@@ -16,6 +16,7 @@
    #:adjust-sequence
    #:make-sequence-like
    #:protocol-unimplemented
+   #:protocol-unimplemented-operation
    #:emptyp
    #:count
    #:count-if

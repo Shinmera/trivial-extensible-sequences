@@ -71,7 +71,7 @@
         (make-list length :initial-element initial-element))))
 
 (define-condition sequences:protocol-unimplemented (type-error)
-  ((protocol :initarg :protocol :reader protocol))
+  ((protocol :initarg :protocol :reader sequences:protocol-unimplemented-operation))
   (:report (lambda (c s) (format s "The sequence protocol function ~s is not implemented for~%  ~a"
                                  (protocol c) (type-error-datum c)))))
 
