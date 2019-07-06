@@ -82,44 +82,160 @@
          :epected-type '(or sequence sequences:sequence)))
 
 ;;;; Default Functions
-(defgeneric sequences:emptyp (sequence))
-(defgeneric sequences:count (item sequecne &key key test test-not start end from-end))
-(defgeneric sequences:count-if (pred sequence &key key start end from-end))
-(defgeneric sequences:count-if-not (pred sequence &key key start end from-end))
-(defgeneric sequences:find (item sequence &key key test test-not start end from-end))
-(defgeneric sequences:find-if (pred sequence &key key start end from-end))
-(defgeneric sequences:find-if-not (pred sequence &key key start end from-end))
-(defgeneric sequences:position (item sequence &key key test test-not start end from-end))
-(defgeneric sequences:position-if (pred sequence &key key start end from-end))
-(defgeneric sequences:position-if-not (pred sequence &key key start end from-end))
-(defgeneric sequences:subseq (sequence start &optional end))
-(defgeneric sequences:copy-seq (sequence))
-(defgeneric sequences:fill (sequence item &key start end))
-(defgeneric sequences:map (prototype function sequence &rest sequences))
-(defgeneric sequences:nsubstitute (new old sequence &key key test test-not start end from-end count))
-(defgeneric sequences:nsubstitute-if (new pred sequence &key key start end from-end count))
-(defgeneric sequences:nsubstitute-if-not (new pred sequence &key key start end from-end count))
-(defgeneric sequences:substitute (new old sequence &key key test test-not start end from-end))
-(defgeneric sequences:substitute-if (new pred sequence &key key start end from-end count))
-(defgeneric sequences:substitute-if-not (new pred sequence &key key start end from-end count))
-(defgeneric sequences:replace (sequence1 sequence2 &key start1 end1 start2 end2))
-(defgeneric sequences:nreverse (sequence))
-(defgeneric sequences:reverse (sequence))
-(defgeneric sequences:concatenate (result-prototype &rest sequences))
-(defgeneric sequences:reduce (function sequence &key initial-value key start end from-end))
-(defgeneric sequences:mismatch (sequence1 sequence2 &key key test test-not start1 end1 start2 end2 from-end))
-(defgeneric sequences:search (sequence1 sequence2 &key key test test-not start1 end1 start2 end2 from-end))
-(defgeneric sequences:delete (item sequence &key key test test-not start end from-end))
-(defgeneric sequences:delete-if (pred sequence &key key start end from-end))
-(defgeneric sequences:delete-if-not (pred sequence &key key start end from-end))
-(defgeneric sequences:remove (item sequence &key key test test-not start end from-end))
-(defgeneric sequences:remove-if (pred sequence &key key start end from-end))
-(defgeneric sequences:remove-if-not (pred sequence &key key start end from-end))
-(defgeneric sequences:delete-duplicates (sequence &key key test test-not start end from-end))
-(defgeneric sequences:remove-duplicates (sequence &key key test test-not start end from-end))
-(defgeneric sequences:sort (sequence pred &key key))
-(defgeneric sequences:stable-sort (sequence pred &key key))
-(defgeneric sequences:merge (prototype sequence1 sequence2 predicate &key key))
+(defgeneric sequences:emptyp (sequence)
+  (:method ((sequence sequences:sequence))
+    (= 0 (sequences:length sequence)))
+  (:method ((null null)) T)
+  (:method ((cons cons)) NIL)
+  (:method ((vector vector)) (= 0 (length vector))))
+
+(defgeneric sequences:count (item sequecne &key key test test-not start end from-end)
+  (:method (item (sequence sequence) &rest args)
+    (apply #'count item sequence args)))
+
+(defgeneric sequences:count-if (pred sequence &key key start end from-end)
+  (:method (pred (sequence sequence) &rest args)
+    (apply #'count-if pred sequence args)))
+
+(defgeneric sequences:count-if-not (pred sequence &key key start end from-end)
+  (:method (pred (sequence sequence) &rest args)
+    (apply #'count-if-not pred sequence args)))
+
+(defgeneric sequences:find (item sequence &key key test test-not start end from-end)
+  (:method (item (sequence sequence) &rest args)
+    (apply #'find item sequence args)))
+
+(defgeneric sequences:find-if (pred sequence &key key start end from-end)
+  (:method (pred (sequence sequence) &rest args)
+    (apply #'find-if pred sequence args)))
+
+(defgeneric sequences:find-if-not (pred sequence &key key start end from-end)
+  (:method (pred (sequence sequence) &rest args)
+    (apply #'find-if-not pred sequence args)))
+
+(defgeneric sequences:position (item sequence &key key test test-not start end from-end)
+  (:method (pred (sequence sequence) &rest args)
+    (apply #'position pred sequence args)))
+
+(defgeneric sequences:position-if (pred sequence &key key start end from-end)
+  (:method (pred (sequence sequence) &rest args)
+    (apply #'position-if pred sequence args)))
+
+(defgeneric sequences:position-if-not (pred sequence &key key start end from-end)
+  (:method (pred (sequence sequence) &rest args)
+    (apply #'position-if-not pred sequence args)))
+
+(defgeneric sequences:subseq (sequence start &optional end)
+  (:method ((sequence sequence) start &optional end)
+    (subseq sequence start end)))
+
+(defgeneric sequences:copy-seq (sequence)
+  (:method ((sequence sequence))
+    (copy-seq sequence)))
+
+(defgeneric sequences:fill (sequence item &key start end)
+  (:method ((sequence sequence) item &rest args)
+    (apply #'fill sequence item args)))
+
+(defgeneric sequences:map (prototype function sequence &rest sequences)
+  (:method (prototype function sequence &rest sequences)
+    ))
+
+(defgeneric sequences:nsubstitute (new old sequence &key key test test-not start end from-end count)
+  (:method (new old (sequence sequence) &rest args)
+    (apply #'nsubstitute new old sequence args)))
+
+(defgeneric sequences:nsubstitute-if (new pred sequence &key key start end from-end count)
+  (:method (new pred (sequence sequence) &rest args)
+    (apply #'nsubstitute-if new pred sequence args)))
+
+(defgeneric sequences:nsubstitute-if-not (new pred sequence &key key start end from-end count)
+  (:method (new pred (sequence sequence) &rest args)
+    (apply #'nsubstitute-if-not new pred sequence args)))
+
+(defgeneric sequences:substitute (new old sequence &key key test test-not start end from-end)
+  (:method (new old (sequence sequence) &rest args)
+    (apply #'substitute new old sequence args)))
+
+(defgeneric sequences:substitute-if (new pred sequence &key key start end from-end count)
+  (:method (new pred (sequence sequence) &rest args)
+    (apply #'substitute-if new pred sequence args)))
+
+(defgeneric sequences:substitute-if-not (new pred sequence &key key start end from-end count)
+  (:method (new pred (sequence sequence) &rest args)
+    (apply #'substitute-if-not new pred sequence args)))
+
+(defgeneric sequences:replace (sequence1 sequence2 &key start1 end1 start2 end2)
+  (:method ((a sequence) (b sequence) &rest args)
+    (apply #'replace a b args)))
+
+(defgeneric sequences:nreverse (sequence)
+  (:method ((sequence sequence))
+    (nreverse sequence)))
+
+(defgeneric sequences:reverse (sequence)
+  (:method ((sequence sequence))
+    (reverse sequence)))
+
+(defgeneric sequences:concatenate (result-prototype &rest sequences)
+  (:method (prototype &rest sequences)
+    ))
+
+(defgeneric sequences:reduce (function sequence &key initial-value key start end from-end)
+  (:method (func (sequence sequence) &rest args)
+    (apply #'reduce func sequence args)))
+
+(defgeneric sequences:mismatch (sequence1 sequence2 &key key test test-not start1 end1 start2 end2 from-end)
+  (:method ((a sequence) (b sequence) &rest args)
+    (apply #'mismatch a b args)))
+
+(defgeneric sequences:search (sequence1 sequence2 &key key test test-not start1 end1 start2 end2 from-end)
+  (:method ((a sequence) (b sequence) &rest args)
+    (apply #'search a b args)))
+
+(defgeneric sequences:delete (item sequence &key key test test-not start end from-end)
+  (:method (item (sequence sequence) &rest args)
+    (apply #'delete item sequence args)))
+
+(defgeneric sequences:delete-if (pred sequence &key key start end from-end)
+  (:method (pred (sequence sequence) &rest args)
+    (apply #'delete-if pred sequence args)))
+
+(defgeneric sequences:delete-if-not (pred sequence &key key start end from-end)
+  (:method (pred (sequence sequence) &rest args)
+    (apply #'delete-if-not pred sequence args)))
+
+(defgeneric sequences:remove (item sequence &key key test test-not start end from-end)
+  (:method (item (sequence sequence) &rest args)
+    (apply #'remove item sequence args)))
+
+(defgeneric sequences:remove-if (pred sequence &key key start end from-end)
+  (:method (pred (sequence sequence) &rest args)
+    (apply #'remove-if pred sequence args)))
+
+(defgeneric sequences:remove-if-not (pred sequence &key key start end from-end)
+  (:method (pred (sequence sequence) &rest args)
+    (apply #'remove-if-not pred sequence args)))
+
+(defgeneric sequences:delete-duplicates (sequence &key key test test-not start end from-end)
+  (:method ((sequence sequence) &rest args)
+    (apply #'delete-duplicates sequence args)))
+
+(defgeneric sequences:remove-duplicates (sequence &key key test test-not start end from-end)
+  (:method ((sequence sequence) &rest args)
+    (apply #'remove-duplicates sequence args)))
+
+(defgeneric sequences:sort (sequence pred &key key)
+  (:method ((sequence sequence) pred &rest args)
+    (apply #'sort sequence pred args)))
+
+(defgeneric sequences:stable-sort (sequence pred &key key)
+  (:method ((sequence sequence) pred &rest args)
+    (apply #'stable-sort sequence pred args)))
+
+(defgeneric sequences:merge (prototype sequence1 sequence2 predicate &key key)
+  (:method (prototype (a sequence) (b sequence) pred &rest args)
+    (apply #'merge prototype a b pred args)))
 
 (defmacro sequences:dosequence ((element sequence &optional return) &body body)
   (let ((step (gensym "STEP")) (endp (gensym "ENDP")) (elt (gensym "ELT"))
