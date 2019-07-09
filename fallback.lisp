@@ -224,6 +224,12 @@
         (T
          #'eql)))
 
+(defun coerce-to (type sequence)
+  (case type
+    (list (sequences:make-sequence-like '() (sequences:length sequence) :initial-contents sequence))
+    (vector (sequences:make-sequence-like #() (sequences:length sequence) :initial-contents sequence))
+    (T (sequences:make-sequence-like (allocate-instance type) (sequences:length sequence) :initial-contents sequence))))
+
 (defmacro with-sequence-arguments ((&rest defs) &body body)
   `(let ,(loop for def in defs
                collect (case def
@@ -352,9 +358,23 @@
     (apply #'fill sequence item args)))
 
 (defgeneric sequences:map (prototype function sequence &rest sequences)
-  (:method (prototype function sequence &rest sequences)
-    ;; TODO: this
-    ))
+  (:method ((sequence sequences:sequence) function sequence &rest sequences)
+    (let* ((sequences (list* sequence sequences))
+           (iterators (loop for sequence in sequences
+                            collect (list* sequence (multiple-value-list (sequences:make-sequence-iterator sequence)))))
+           (mapped (loop while (loop for iterator in iterators
+                                     for (sequence it limit from-end step endp) = iterator
+                                     never (funcall endp sequence it limit from-end))
+                         collect (let ((els (loop for iterator in iterators
+                                                  for (sequence it limit from-end step endp elt) = iterator
+                                                  collect (funcall elt sequence it))))
+                                   (apply function els))
+                         do (loop for iterator in iterators
+                                  for (sequence it limit from-end step) = iterator
+                                  do (setf (second iterator) (funcall step sequence it from-end))))))
+      (sequences:make-sequence-like sequence (length mapped) :initial-contetns mapped)))
+  (:method ((sequence sequence) function sequence &rest sequences)
+    (apply #'map (type-of sequence) function sequence sequences)))
 
 (defgeneric sequences:nsubstitute (new old sequence &key key test test-not start end from-end count)
   (:method (new old (sequence sequences:sequence) &key key test test-not start end from-end count)
@@ -456,9 +476,16 @@
     (reverse sequence)))
 
 (defgeneric sequences:concatenate (result-prototype &rest sequences)
-  (:method (prototype &rest sequences)
-    ;; TODO: this
-    ))
+  (:method ((prototype sequences:sequence) &rest sequences)
+    (let ((new (make-array 0 :adjustable T :fill-pointer T)))
+      (dolist (sequence sequences)
+        (sequences:with-sequence-iterator-functions (step endp elt (setf endp) idx copy) (sequence)
+          (loop until (endp)
+                do (vector-push-extend (elt) new)
+                   (step))))
+      (sequences:make-sequence-like prototype (length new) :initial-contents new)))
+  (:method ((prototype sequence) &rest sequences)
+    (apply #'concatenate (type-of prototype) sequences)))
 
 (defgeneric sequences:reduce (function sequence &key initial-value key start end from-end)
   (:method (func (sequence sequences:sequence) &key (initial-value NIL ip) key start end from-end)
@@ -478,13 +505,16 @@
     (apply #'reduce func sequence args)))
 
 (defgeneric sequences:mismatch (sequence1 sequence2 &key key test test-not start1 end1 start2 end2 from-end)
-  ;; TODO: this
+  (:method ((a b) &rest args)
+    ;; FIXME: Implement without copying
+    (apply #'mismatch (coerce-to 'vector sequence1) (coerce-to 'vector sequence2) args))
   (:method ((a sequence) (b sequence) &rest args)
     (apply #'mismatch a b args)))
 
 (defgeneric sequences:search (sequence1 sequence2 &key key test test-not start1 end1 start2 end2 from-end)
   (:method (a b &rest args)
-    (search (sequences:concatenate 'vector sequence1) (sequences:concatenate 'vector sequence2) args))
+    ;; FIXME: Implement without copying
+    (search (coerce-to 'vector sequence1) (coerce-to 'vector sequence2) args))
   (:method ((a sequence) (b sequence) &rest args)
     (apply #'search a b args)))
 
@@ -556,7 +586,8 @@
 
 (defgeneric sequences:delete-duplicates (sequence &key key test test-not start end from-end)
   (:method ((sequence sequences:sequence) &rest args)
-    (let ((new (sequences:concatenate 'list sequence)))
+    ;; FIXME: Implement without copying
+    (let ((new (coerce-to 'list sequence)))
       (setf new (apply #'remove-duplicates new args))
       (sequences:adjust-sequence sequence (length new) :initial-contents new)))
   (:method ((sequence sequence) &rest args)
@@ -564,7 +595,8 @@
 
 (defgeneric sequences:remove-duplicates (sequence &key key test test-not start end from-end)
   (:method ((sequence sequences:sequence) &rest args)
-    (let ((new (sequences:concatenate 'list sequence)))
+    ;; FIXME: Implement without copying
+    (let ((new (coerce-to 'list sequence)))
       (setf new (apply #'remove-duplicates new args))
       (sequences:make-sequence-like sequence (length new) :initial-contents new)))
   (:method ((sequence sequence) &rest args)
@@ -572,22 +604,25 @@
 
 (defgeneric sequences:sort (sequence pred &key key)
   (:method ((sequence sequences:sequence) pred &rest args)
-    (let ((sorted (apply #'sort (sequences:concatenate 'list sequence) pred args)))
+    ;; FIXME: Implement without copying
+    (let ((sorted (apply #'sort (coerce-to 'list sequence) pred args)))
       (sequences:adjust-sequence sequence (sequences:length sequence) :initial-contents sorted)))
   (:method ((sequence sequence) pred &rest args)
     (apply #'sort sequence pred args)))
 
 (defgeneric sequences:stable-sort (sequence pred &key key)
   (:method ((sequence sequences:sequence) pred &rest args)
-    (let ((sorted (apply #'stable-sort (sequences:concatenate 'list sequence) pred args)))
+    ;; FIXME: Implement without copying
+    (let ((sorted (apply #'stable-sort (coerce-to 'list sequence) pred args)))
       (sequences:adjust-sequence sequence (sequences:length sequence) :initial-contents sorted)))
   (:method ((sequence sequence) pred &rest args)
     (apply #'stable-sort sequence pred args)))
 
 (defgeneric sequences:merge (prototype sequence1 sequence2 predicate &key key)
   (:method (prototype a b predicate &rest args)
-    ;; TODO: this
-    )
+    ;; FIXME: Implement without copying
+    (let ((new (apply #'merge 'vector (coerce-to 'vector sequence2) (coerce-to 'vector sequence2) predicate args)))
+      (sequences:make-sequence-like prototype (length new) :initial-contents new)))
   (:method (prototype (a sequence) (b sequence) pred &rest args)
     (apply #'merge prototype a b pred args)))
 
