@@ -81,6 +81,133 @@
          :datum datum
          :epected-type '(or sequence sequences:sequence)))
 
+;;; Iterator Protocol
+(defgeneric sequences:make-sequence-iterator (sequence &key start end from-end)
+  (:method (sequence &rest args)
+    (multiple-value-bind (iterator limit from-end) (apply #'make-simple-sequence-iterator sequence args)
+      (values iterator limit from-end
+              #'#.(name 'iterator-step)
+              #'#.(name 'iterator-endp)
+              #'#.(name 'iterator-element)
+              #'#.(name '(setf iterator-element))
+              #'#.(name 'iterator-index)
+              #'#.(name 'iterator-copy)))))
+
+(defmacro sequences:with-sequence-iterator ((&whole vars
+                                             &optional iterator limit from-end-p
+                                                       step endp element set-element index copy)
+                                            (sequence &key from-end (start 0) end) &body body)
+  (let* ((ignored ())
+         (vars (loop for var in vars
+                     for gensym = (gensym)
+                     collect (or var
+                                 (prog1 gensym
+                                   (push gensym ignored))))))
+    `(multiple-value-bind ,vars (sequences:make-sequence-iterator ,sequence :start ,start :end ,end :from-end ,from-end)
+       (declare (ignore ,@ignored))
+       ,@body body)))
+
+(defmacro sequences:with-sequence-iterator-functions ((step endp elt setf index copy)
+                                                      (sequence &rest args &key from-end start end)
+                                                      &body body)
+  (let ((nstate (gensym "STATE")) (nlimit (gensym "LIMIT"))
+        (nfrom-end (gensym "FROM-END-")) (nstep (gensym "STEP"))
+        (nendp (gensym "ENDP")) (nelt (gensym "ELT"))
+        (nsetf (gensym "SETF")) (nindex (gensym "INDEX"))
+        (ncopy (gensym "COPY")) (new-value (gensym "NEW-VALUE")))
+    (sequences:with-sequence-iterator
+        (,nstate ,nlimit ,nfrom-end ,nstep ,nendp ,nelt ,nsetf ,nindex ,ncopy)
+        (,sequence ,@args)
+      (flet ((,step () (setq ,nstate (funcall ,nstep ,sequence ,nstate ,nfrom-end)))
+             (,endp () (funcall ,nendp ,sequence ,nstate ,nlimit ,nfrom-end))
+             (,elt () (funcall ,nelt ,sequence ,nstate))
+             (,setf (,new-value) (funcall ,nsetf ,new-value ,sequence ,nstate))
+             (,index () (funcall ,nindex ,sequence ,nstate))
+             (,copy () (funcall ,ncopy ,sequence ,nstate)))
+        ,@body))))
+
+;;; Simple Iterator Protocol
+;; Taken from SBCL's extensible sequences implementation
+(defvar *exhausted* (make-symbol "EXHAUSTED"))
+
+(defgeneric sequences:make-simple-sequence-iterator
+    (sequence &key from-end start end)
+  (:method ((s list) &key from-end (start 0) end)
+    (if from-end
+        (let* ((termination (if (= start 0) *exhausted* (nthcdr (1- start) s)))
+               (init (if (<= (or end (length s)) start)
+                         termination
+                         (if end (last s (- (length s) (1- end))) (last s)))))
+          (values init termination t))
+        (cond
+          ((not end) (values (nthcdr start s) nil nil))
+          (t (let ((st (nthcdr start s)))
+               (values st (nthcdr (- end start) st) nil))))))
+  (:method ((s vector) &key from-end (start 0) end)
+    (let ((end (or end (length s))))
+      (if from-end
+          (values (1- end) (1- start) t)
+          (values start end nil))))
+  (:method ((s sequences:sequence) &key from-end (start 0) end)
+    (let ((end (or end (length s))))
+      (if from-end
+          (values (1- end) (1- start) from-end)
+          (values start end nil)))))
+
+(defgeneric sequences:iterator-step (sequence iterator from-end)
+  (:method ((s list) iterator from-end)
+    (if from-end
+        (if (eq iterator s)
+            *exhausted*
+            (do* ((xs s (cdr xs)))
+                 ((eq (cdr xs) iterator) xs)))
+        (cdr iterator)))
+  (:method ((s vector) iterator from-end)
+    (if from-end
+        (1- iterator)
+        (1+ iterator)))
+  (:method ((s sequences:sequence) iterator from-end)
+    (if from-end
+        (1- iterator)
+        (1+ iterator))))
+
+(defgeneric sequences:iterator-endp (sequence iterator limit from-end)
+  (:method ((s list) iterator limit from-end)
+    (eq iterator limit))
+  (:method ((s vector) iterator limit from-end)
+    (= iterator limit))
+  (:method ((s sequences:sequence) iterator limit from-end)
+    (= iterator limit)))
+
+(defgeneric sequences:iterator-element (sequence iterator)
+  (:method ((s list) iterator)
+    (car iterator))
+  (:method ((s vector) iterator)
+    (aref s iterator))
+  (:method ((s sequences:sequence) iterator)
+    (sequence:elt s iterator)))
+
+(defgeneric sequences:(setf iterator-element) (new-value sequence iterator)
+  (:method (o (s list) iterator)
+    (setf (car iterator) o))
+  (:method (o (s vector) iterator)
+    (setf (aref s iterator) o))
+  (:method (o (s sequences:sequence) iterator)
+    (setf (sequence:elt s iterator) o)))
+
+(defgeneric sequences:iterator-index (sequence iterator)
+  (:method ((s list) iterator)
+    ;; FIXME: this sucks.  (In my defence, it is the equivalent of the
+    ;; Apple implementation in Dylan...)
+    (loop for l on s for i from 0 when (eq l iterator) return i))
+  (:method ((s vector) iterator) iterator)
+  (:method ((s sequences:sequence) iterator) iterator))
+
+(defgeneric sequences:iterator-copy (sequence iterator)
+  (:method ((s list) iterator) iterator)
+  (:method ((s vector) iterator) iterator)
+  (:method ((s sequences:sequence) iterator) iterator))
+
 ;;;; Default Functions
 (defgeneric sequences:emptyp (sequence)
   (:method ((sequence sequences:sequence))
@@ -351,56 +478,109 @@
     (apply #'reduce func sequence args)))
 
 (defgeneric sequences:mismatch (sequence1 sequence2 &key key test test-not start1 end1 start2 end2 from-end)
+  ;; TODO: this
   (:method ((a sequence) (b sequence) &rest args)
     (apply #'mismatch a b args)))
 
 (defgeneric sequences:search (sequence1 sequence2 &key key test test-not start1 end1 start2 end2 from-end)
+  (:method (a b &rest args)
+    (search (sequences:concatenate 'vector sequence1) (sequences:concatenate 'vector sequence2) args))
   (:method ((a sequence) (b sequence) &rest args)
     (apply #'search a b args)))
 
 (defgeneric sequences:delete (item sequence &key key test test-not start end from-end)
+  (:method (item (sequence sequences:sequence) &key key test test-not start end from-end)
+    (let ((new (make-array (sequences:length sequence) :fill-pointer 0)))
+      (with-sequence-arguments (key test)
+        (do-iteration (sequence)
+          (unless (funcall test item (funcall key (elt)))
+            (vector-push (elt) new))))
+      (sequences:adjust-sequence sequence (length new) :initial-contents new)))
   (:method (item (sequence sequence) &rest args)
     (apply #'delete item sequence args)))
 
 (defgeneric sequences:delete-if (pred sequence &key key start end from-end)
+  (:method (item (sequence sequences:sequence) &key key test test-not start end from-end)
+    (let ((new (make-array (sequences:length sequence) :fill-pointer 0)))
+      (with-sequence-arguments (key)
+        (do-iteration (sequence)
+          (unless (funcall pred (funcall key (elt)))
+            (vector-push (elt) new))))
+      (sequences:adjust-sequence sequence (length new) :initial-contents new)))
   (:method (pred (sequence sequence) &rest args)
     (apply #'delete-if pred sequence args)))
 
 (defgeneric sequences:delete-if-not (pred sequence &key key start end from-end)
+  (:method (item (sequence sequences:sequence) &key key test test-not start end from-end)
+    (let ((new (make-array (sequences:length sequence) :fill-pointer 0)))
+      (with-sequence-arguments (key)
+        (do-iteration (sequence)
+          (when (funcall pred (funcall key (elt)))
+            (vector-push (elt) new))))
+      (sequences:adjust-sequence sequence (length new) :initial-contents new)))
   (:method (pred (sequence sequence) &rest args)
     (apply #'delete-if-not pred sequence args)))
 
 (defgeneric sequences:remove (item sequence &key key test test-not start end from-end)
+  (:method (item (sequence sequences:sequence) &key key test test-not start end from-end)
+    (let ((new (make-array (sequences:length sequence) :fill-pointer 0)))
+      (with-sequence-arguments (key test)
+        (do-iteration (sequence)
+          (unless (funcall test item (funcall key (elt)))
+            (vector-push (elt) new))))
+      (sequences:make-sequence-like sequence (length new) :initial-contents new)))
   (:method (item (sequence sequence) &rest args)
     (apply #'remove item sequence args)))
 
 (defgeneric sequences:remove-if (pred sequence &key key start end from-end)
+  (:method (item (sequence sequences:sequence) &key key test test-not start end from-end)
+    (let ((new (make-array (sequences:length sequence) :fill-pointer 0)))
+      (with-sequence-arguments (key)
+        (do-iteration (sequence)
+          (unless (funcall pred (funcall key (elt)))
+            (vector-push (elt) new))))
+      (sequences:make-sequence-like sequence (length new) :initial-contents new)))
   (:method (pred (sequence sequence) &rest args)
     (apply #'remove-if pred sequence args)))
 
 (defgeneric sequences:remove-if-not (pred sequence &key key start end from-end)
+  (:method (item (sequence sequences:sequence) &key key test test-not start end from-end)
+    (let ((new (make-array (sequences:length sequence) :fill-pointer 0)))
+      (with-sequence-arguments (key)
+        (do-iteration (sequence)
+          (when (funcall pred (funcall key (elt)))
+            (vector-push (elt) new))))
+      (sequences:make-sequence-like sequence (length new) :initial-contents new)))
   (:method (pred (sequence sequence) &rest args)
     (apply #'remove-if-not pred sequence args)))
 
 (defgeneric sequences:delete-duplicates (sequence &key key test test-not start end from-end)
+  (:method ((sequence sequences:sequence) &rest args)
+    (let ((new (sequences:concatenate 'list sequence)))
+      (setf new (apply #'remove-duplicates new args))
+      (sequences:adjust-sequence sequence (length new) :initial-contents new)))
   (:method ((sequence sequence) &rest args)
     (apply #'delete-duplicates sequence args)))
 
 (defgeneric sequences:remove-duplicates (sequence &key key test test-not start end from-end)
+  (:method ((sequence sequences:sequence) &rest args)
+    (let ((new (sequences:concatenate 'list sequence)))
+      (setf new (apply #'remove-duplicates new args))
+      (sequences:make-sequence-like sequence (length new) :initial-contents new)))
   (:method ((sequence sequence) &rest args)
     (apply #'remove-duplicates sequence args)))
 
 (defgeneric sequences:sort (sequence pred &key key)
   (:method ((sequence sequences:sequence) pred &rest args)
     (let ((sorted (apply #'sort (sequences:concatenate 'list sequence) pred args)))
-      (sequences:adjust-sequence sequence (sequences:length) :initial-contents sorted)))
+      (sequences:adjust-sequence sequence (sequences:length sequence) :initial-contents sorted)))
   (:method ((sequence sequence) pred &rest args)
     (apply #'sort sequence pred args)))
 
 (defgeneric sequences:stable-sort (sequence pred &key key)
   (:method ((sequence sequences:sequence) pred &rest args)
     (let ((sorted (apply #'stable-sort (sequences:concatenate 'list sequence) pred args)))
-      (sequences:adjust-sequence sequence (sequences:length) :initial-contents sorted)))
+      (sequences:adjust-sequence sequence (sequences:length sequence) :initial-contents sorted)))
   (:method ((sequence sequence) pred &rest args)
     (apply #'stable-sort sequence pred args)))
 
@@ -422,130 +602,3 @@
                 ,@body
                 (,step))
            finally (return ,return))))
-
-;;; Iterator Protocol
-(defgeneric sequences:make-sequence-iterator (sequence &key start end from-end)
-  (:method (sequence &rest args)
-    (multiple-value-bind (iterator limit from-end) (apply #'make-simple-sequence-iterator sequence args)
-      (values iterator limit from-end
-              #'#.(name 'iterator-step)
-              #'#.(name 'iterator-endp)
-              #'#.(name 'iterator-element)
-              #'#.(name '(setf iterator-element))
-              #'#.(name 'iterator-index)
-              #'#.(name 'iterator-copy)))))
-
-(defmacro sequences:with-sequence-iterator ((&whole vars
-                                                    &optional iterator limit from-end-p
-                                                    step endp element set-element index copy)
-                                            (sequence &key from-end (start 0) end) &body body)
-  (let* ((ignored ())
-         (vars (loop for var in vars
-                     for gensym = (gensym)
-                     collect (or var
-                                 (prog1 gensym
-                                   (push gensym ignored))))))
-    `(multiple-value-bind ,vars (sequences:make-sequence-iterator ,sequence :start ,start :end ,end :from-end ,from-end)
-       (declare (ignore ,@ignored))
-       ,@body body)))
-
-(defmacro sequences:with-sequence-iterator-functions ((step endp elt setf index copy)
-                                                                (sequence &rest args &key from-end start end)
-                                                                &body body)
-  (let ((nstate (gensym "STATE")) (nlimit (gensym "LIMIT"))
-        (nfrom-end (gensym "FROM-END-")) (nstep (gensym "STEP"))
-        (nendp (gensym "ENDP")) (nelt (gensym "ELT"))
-        (nsetf (gensym "SETF")) (nindex (gensym "INDEX"))
-        (ncopy (gensym "COPY")) (new-value (gensym "NEW-VALUE")))
-    (sequences:with-sequence-iterator
-        (,nstate ,nlimit ,nfrom-end ,nstep ,nendp ,nelt ,nsetf ,nindex ,ncopy)
-        (,sequence ,@args)
-      (flet ((,step () (setq ,nstate (funcall ,nstep ,sequence ,nstate ,nfrom-end)))
-             (,endp () (funcall ,nendp ,sequence ,nstate ,nlimit ,nfrom-end))
-             (,elt () (funcall ,nelt ,sequence ,nstate))
-             (,setf (,new-value) (funcall ,nsetf ,new-value ,sequence ,nstate))
-             (,index () (funcall ,nindex ,sequence ,nstate))
-             (,copy () (funcall ,ncopy ,sequence ,nstate)))
-        ,@body))))
-
-;;; Simple Iterator Protocol
-;; Taken from SBCL's extensible sequences implementation
-(defvar *exhausted* (make-symbol "EXHAUSTED"))
-
-(defgeneric sequences:make-simple-sequence-iterator
-    (sequence &key from-end start end)
-  (:method ((s list) &key from-end (start 0) end)
-    (if from-end
-        (let* ((termination (if (= start 0) *exhausted* (nthcdr (1- start) s)))
-               (init (if (<= (or end (length s)) start)
-                         termination
-                         (if end (last s (- (length s) (1- end))) (last s)))))
-          (values init termination t))
-        (cond
-          ((not end) (values (nthcdr start s) nil nil))
-          (t (let ((st (nthcdr start s)))
-               (values st (nthcdr (- end start) st) nil))))))
-  (:method ((s vector) &key from-end (start 0) end)
-    (let ((end (or end (length s))))
-      (if from-end
-          (values (1- end) (1- start) t)
-          (values start end nil))))
-  (:method ((s sequences:sequence) &key from-end (start 0) end)
-    (let ((end (or end (length s))))
-      (if from-end
-          (values (1- end) (1- start) from-end)
-          (values start end nil)))))
-
-(defgeneric sequences:iterator-step (sequence iterator from-end)
-  (:method ((s list) iterator from-end)
-    (if from-end
-        (if (eq iterator s)
-            *exhausted*
-            (do* ((xs s (cdr xs)))
-                 ((eq (cdr xs) iterator) xs)))
-        (cdr iterator)))
-  (:method ((s vector) iterator from-end)
-    (if from-end
-        (1- iterator)
-        (1+ iterator)))
-  (:method ((s sequences:sequence) iterator from-end)
-    (if from-end
-        (1- iterator)
-        (1+ iterator))))
-
-(defgeneric sequences:iterator-endp (sequence iterator limit from-end)
-  (:method ((s list) iterator limit from-end)
-    (eq iterator limit))
-  (:method ((s vector) iterator limit from-end)
-    (= iterator limit))
-  (:method ((s sequences:sequence) iterator limit from-end)
-    (= iterator limit)))
-
-(defgeneric sequences:iterator-element (sequence iterator)
-  (:method ((s list) iterator)
-    (car iterator))
-  (:method ((s vector) iterator)
-    (aref s iterator))
-  (:method ((s sequences:sequence) iterator)
-    (sequence:elt s iterator)))
-
-(defgeneric sequences:(setf iterator-element) (new-value sequence iterator)
-  (:method (o (s list) iterator)
-    (setf (car iterator) o))
-  (:method (o (s vector) iterator)
-    (setf (aref s iterator) o))
-  (:method (o (s sequences:sequence) iterator)
-    (setf (sequence:elt s iterator) o)))
-
-(defgeneric sequences:iterator-index (sequence iterator)
-  (:method ((s list) iterator)
-    ;; FIXME: this sucks.  (In my defence, it is the equivalent of the
-    ;; Apple implementation in Dylan...)
-    (loop for l on s for i from 0 when (eq l iterator) return i))
-  (:method ((s vector) iterator) iterator)
-  (:method ((s sequences:sequence) iterator) iterator))
-
-(defgeneric sequences:iterator-copy (sequence iterator)
-  (:method ((s list) iterator) iterator)
-  (:method ((s vector) iterator) iterator)
-  (:method ((s sequences:sequence) iterator) iterator))
