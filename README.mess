@@ -1,7 +1,7 @@
 ## About
 This package provides a portability layer for the extensible sequences standard extension to Common Lisp. Extensible sequences allow you to create your own sequence types that integrate with the rest of the functions and operations that interact with sequences.
 
-The extensible sequences protocol is defined in 'User-extensible sequences in Common Lisp' by Christophe Rhodes"[1]"(link http://www.doc.gold.ac.uk/~mas01cr/papers/ilc2007/sequences-20070301.pdf, supertext). Also see the "SBCL manual"(http://www.sbcl.org/manual/#Extensible-Sequences).
+The extensible sequences protocol is defined in 'User-extensible sequences in Common Lisp' by Christophe Rhodes"[1]"(link http://www.doc.gold.ac.uk/~mas01cr/papers/ilc2007/sequences-20070301.pdf, supertext). Also see the "SBCL manual"(http://www.sbcl.org/manual/#Extensible-Sequences). Please refer to the above documents as well as the sequence operations in the hyperspec for documentation.
 
 ## How To
 The basic operation is rather simple. All the functionality is defined in the ``org.shirakumo.trivial-extensible-sequences`` package -- you may want to use a package-local-nickname to alias it to ``sequences``.
@@ -40,6 +40,33 @@ Then you should add methods on ``length``, ``elt``, ``(setf elt)``, ``adjust-seq
 :::
 
 If you leave out any of these functions, some of the sequence operators will not work and will instead signal a ``protocol-unimplemented`` error on use. If you do provide a method on each, then all the sequence operators should work out of the box using generic implementations. If you would like to speed up a particular operation for your sequence type, you can also define a specific implementation by adding a method to that function.
+
+Also useful is to explicitly support the iterator protocol, which should allow most default operations to be performed much faster. To do so you only need to define a method on ``make-sequence-iterator``. This method should return 9 values:
+
+1. An iteration state value.
+2. A value describing the limit of iteration, if any.
+3. The from-end value.
+4. A step function of three arguments: the sequence, the state value, the from-end value. The function should return the new state value.
+5. An end predicate of four arguments: the sequence, the state value, the limit value, the from-end value. The function should return a generalised boolean describing whether the iteration has reached the end of the sequence.
+6. An element read function of two arguments: the sequence, the state value.
+7. An element write function of three arguments: the new value to store, the sequence, the state value.
+8. An index function of two arguments: the sequence, the state value. The function should return the current iteration index, starting from zero.
+9. An iterator copy function of two arguments: the sequence, the state value. The function should return a "fresh" iteration value.
+
+Here's what it might look like for our relatively useless example sequence type:
+
+::: lisp
+(defmethod sequences:make-sequence-iterator ((sequence value-as-sequence) &key start end from-end)
+  (values 0 1 from-end
+          (lambda (seq state from-end) (1+ state))
+          (lambda (seq state limit from-end) (< state limit))
+          (lambda (seq state) (value seq))
+          (lambda (value seq state) (setf (value seq) value))
+          (lambda (seq state) state)
+          (lambda (seq state) state)))
+:::
+
+Obviously for more complicated sequences the functions and state could be more interesting than this. Note that you can use iterators more easily using ``with-sequence-iterator``, ``with-sequence-iterator-funcntions``, and ``dosequence``.
 
 ## Implementation Support
 The following implementations have native support for extensible sequences. On those implementations, this package will merely be an alias for the implementation's sequences package.
