@@ -74,6 +74,7 @@ Obviously for more complicated sequences the functions and state could be more i
 The following implementations have native support for extensible sequences. On those implementations, this package will merely be an alias for the implementation's sequences package.
 
 - ABCL
+- Clasp
 - SBCL
 
 On any other implementation, this package provides a //fallback// implementation of the protocol. The protocol should work completely with the following caveats:

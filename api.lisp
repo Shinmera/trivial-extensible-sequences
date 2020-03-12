@@ -8,7 +8,7 @@
   #-(or abcl ccl clasp ecl sbcl)
   (:nicknames #:sequence)
   (:use #+sbcl #:sb-sequence
-        #+abcl #:sequence)
+        #+(or abcl clasp) #:sequence)
   (:export
    #:sequence
    #:length

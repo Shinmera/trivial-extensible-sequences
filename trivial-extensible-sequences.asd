@@ -15,5 +15,5 @@
   :source-control (:git "https://github.com/Shinmera/trivial-extensible-sequences.git")
   :serial T
   :components ((:file "api")
-               (:file "fallback" :if-feature (:not (:or :sbcl :abcl))))
+               (:file "fallback" :if-feature (:not (:or :sbcl :abcl :clasp))))
   :depends-on ((:feature :abcl (:require :extensible-sequences))))
