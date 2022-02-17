@@ -9,6 +9,8 @@
   (:nicknames #:sequence)
   (:use #+sbcl #:sb-sequence
         #+(or abcl clasp) #:sequence)
+  #+(or sbcl abcl clasp)
+  (:import-from #:cl #:sequence)
   (:export
    #:sequence
    #:length
