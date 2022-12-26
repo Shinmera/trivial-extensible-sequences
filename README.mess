@@ -3,7 +3,7 @@ This package provides a portability layer for the extensible sequences standard 
 
 The extensible sequences protocol is defined in 'User-extensible sequences in Common Lisp' by Christophe Rhodes[1]. Also see the "SBCL manual"(http://www.sbcl.org/manual/#Extensible-Sequences). Please refer to the above documents as well as the sequence operations in the hyperspec for documentation.
 
-[1] http://www.doc.gold.ac.uk/%7Emas01cr/papers/ilc2007/sequences-20070301.pdf
+[1] https://research.gold.ac.uk/id/eprint/2344/1/sequences-20070301.pdf
 
 ## How To
 The basic operation is rather simple. All the functionality is defined in the ``org.shirakumo.trivial-extensible-sequences`` package -- you may want to use a package-local-nickname to alias it to ``sequences``.
