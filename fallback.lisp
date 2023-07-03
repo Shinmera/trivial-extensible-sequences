@@ -1,9 +1,3 @@
-#|
- This file is a part of trivial-extensible-sequences
- (c) 2019 Shirakumo http://tymoon.eu (shinmera@tymoon.eu)
- Author: Nicolas Hafner <shinmera@tymoon.eu>
-|#
-
 (defpackage #:org.shirakumo.trivial-extensible-sequences.fallback
   (:use #:cl)
   #+(or abcl ccl clasp ecl sbcl)
