@@ -1,4 +1,4 @@
-(defsystem trivial-extensible-sequences
+(asdf:defsystem trivial-extensible-sequences
   :version "1.0.0"
   :license "zlib"
   :author "Yukari Hafner <shinmera@tymoon.eu>"

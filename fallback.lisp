@@ -187,7 +187,7 @@
   (:method ((s vector) iterator)
     (aref s iterator))
   (:method ((s sequences:sequence) iterator)
-    (sequence:elt s iterator)))
+    (sequences:elt s iterator)))
 
 (defgeneric (setf sequences:iterator-element) (new-value sequence iterator)
   (:method (o (s list) iterator)
@@ -195,7 +195,7 @@
   (:method (o (s vector) iterator)
     (setf (aref s iterator) o))
   (:method (o (s sequences:sequence) iterator)
-    (setf (sequence:elt s iterator) o)))
+    (setf (sequences:elt s iterator) o)))
 
 (defgeneric sequences:iterator-index (sequence iterator)
   (:method ((s list) iterator)
