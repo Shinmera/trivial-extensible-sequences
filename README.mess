@@ -70,7 +70,7 @@ Here's what it might look like for our relatively useless example sequence type:
           (lambda (seq state) state)))
 :::
 
-Obviously for more complicated sequences the functions and state could be more interesting than this. Note that you can use iterators more easily using ``with-sequence-iterator``, ``with-sequence-iterator-funcntions``, and ``dosequence``.
+Obviously for more complicated sequences the functions and state could be more interesting than this. Note that you can use iterators more easily using ``with-sequence-iterator``, ``with-sequence-iterator-functions``, and ``dosequence``.
 
 ## Implementation Support
 The following implementations have native support for extensible sequences. On those implementations, this package will merely be an alias for the implementation's sequences package.
