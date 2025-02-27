@@ -1,6 +1,6 @@
 (defpackage #:org.shirakumo.trivial-extensible-sequences.fallback
   (:use #:cl)
-  #+(or abcl ccl clasp ecl sbcl)
+  #+(or abcl ccl clasp ecl sbcl lispworks8)
   (:local-nicknames (#:sequences #:org.shirakumo.trivial-extensible-sequences))
   (:shadow #:step #:endp))
 (in-package #:org.shirakumo.trivial-extensible-sequences.fallback)
