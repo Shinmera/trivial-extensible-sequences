@@ -1,5 +1,5 @@
 (defpackage #:org.shirakumo.trivial-extensible-sequences
-  #-(or abcl ccl clasp ecl sbcl)
+  #-(or abcl ccl clasp ecl sbcl (and lispworks (not (or lispworks6 lispworks7))))
   (:nicknames #:sequence)
   (:use #+sbcl #:sb-sequence
         #+(or abcl clasp) #:sequence)
